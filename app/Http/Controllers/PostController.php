@@ -4,15 +4,26 @@ namespace App\Http\Controllers;
 
 use App\Models\Post;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Gate;
 
-class PostController extends Controller
+class PostController extends Controller implements HasMiddleware
 {
+    public static function middleware()
+    {
+        return [
+            new Middleware('auth:sanctum', except: ['index', 'show'])
+        ];
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        return Post::all();
+        return Post::with('user')->latest()->get();
+        // return Post::all();
     }
 
     /**
@@ -20,13 +31,15 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
-        $fildes=$request->validate([
-            'title' =>'required|max:225',
-            'body' =>'required',
+        $fields = $request->validate([
+            'title' => 'required|max:255',
+            'body' => 'required'
         ]);
-        
-       $post = Post::create($fildes);
-       return $post;
+
+        $post = $request->user()->posts()->create($fields);
+
+        return ['post' => $post, 'user' => $post->user];
+        // return $post;
     }
 
     /**
@@ -34,7 +47,8 @@ class PostController extends Controller
      */
     public function show(Post $post)
     {
-        return $post;
+        return ['post' => $post, 'user' => $post->user];
+        // return $post;
     }
 
     /**
@@ -42,13 +56,17 @@ class PostController extends Controller
      */
     public function update(Request $request, Post $post)
     {
-        $fildes=$request->validate([
-            'title' =>'required|max:225',
-            'body' =>'required',
+        Gate::authorize('modify', $post);
+
+        $fields = $request->validate([
+            'title' => 'required|max:255',
+            'body' => 'required'
         ]);
-        
-       $post->update($fildes);
-       return $post;
+
+        $post->update($fields);
+
+        return ['post' => $post, 'user' => $post->user];
+        // return $post;
     }
 
     /**
@@ -56,7 +74,10 @@ class PostController extends Controller
      */
     public function destroy(Post $post)
     {
+        Gate::authorize('modify', $post);
+
         $post->delete();
-        return ["message"=> "the post was deleted"];
+
+        return ['message' => 'The post was deleted'];
     }
 }
